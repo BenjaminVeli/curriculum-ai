@@ -136,16 +136,16 @@ export const AIResponseFormat = `
     }`;
 
 export const prepareInstructions = ({jobTitle, jobDescription}: { jobTitle: string; jobDescription: string; }) =>
-    `You are an expert in ATS (Applicant Tracking System) and resume analysis.
-      Please analyze and rate this resume and suggest how to improve it.
-      The rating can be low if the resume is bad.
-      Be thorough and detailed. Don't be afraid to point out any mistakes or areas for improvement.
-      If there is a lot to improve, don't hesitate to give low scores. This is to help the user to improve their resume.
-      If available, use the job description for the job user is applying to to give more detailed feedback.
-      If provided, take the job description into consideration.
-      The job title is: ${jobTitle}
-      The job description is: ${jobDescription}
-      Provide the feedback using the following format:
+    `Eres un experto en ATS (Applicant Tracking System) y en análisis de currículums.
+      Analiza y califica este currículum, y sugiere cómo mejorarlo.
+      La calificación puede ser baja si el currículum es deficiente.
+      Sé minucioso, claro y detallado. No tengas miedo de señalar errores, debilidades o áreas de mejora.
+      Si hay muchos aspectos por mejorar, asigna puntuaciones bajas. El objetivo es ayudar al usuario a mejorar su currículum.
+      Si se proporciona una descripción del puesto, úsala para dar comentarios más precisos y alineados al perfil buscado.
+      Ten en cuenta el puesto al que el usuario está postulando.
+      Puesto de trabajo: ${jobTitle}
+      Descripción del puesto: ${jobDescription}
+      Devuelve el feedback usando estrictamente el siguiente formato:
       ${AIResponseFormat}
-      Return the analysis as an JSON object, without any other text and without the backticks.
-      Do not include any other text or comments.`;
+      Devuelve la respuesta únicamente como un objeto JSON válido, sin texto adicional, sin explicaciones y sin usar backticks.
+      No incluyas comentarios fuera del objeto JSON.`;

@@ -6,6 +6,7 @@ import { prepareInstructions } from "~/constants";
 import { convertPdfToImage } from "~/lib/pdf2img";
 import { usePuterStore } from "~/lib/puter";
 import { generateUUID } from "~/lib/utils";
+import toast from "react-hot-toast";
 
 const upload = () => {
     const {fs, ai, kv} = usePuterStore();
@@ -24,30 +25,30 @@ const upload = () => {
         try{
 
             //
-            setStatusText('Uploading the file...');
+            setStatusText('Subiendo el archivo...');
             const uploadedFile = await fs.upload([file]);
-            if (!uploadedFile) throw new Error('Failed to upload file');
+            if (!uploadedFile) throw new Error('No se pudo cargar el archivo');
             // if(!uploadedFile) return setStatusText('Error: Failed to upload file');
 
             //
-            setStatusText('Converting to image...');
+            setStatusText('Convirtiendo a imagen...');
             const imageFile = await convertPdfToImage(file);
             if (imageFile.error) {
-                throw new Error(`PDF Conversion Error: ${imageFile.error}`);
+                throw new Error(`Error de conversión de PDF: ${imageFile.error}`);
             }
             if (!imageFile?.file) {
-                throw new Error('Failed to convert PDF to image - no file generated');
+                throw new Error('No se pudo convertir PDF a imagen: no se generó ningún archivo');
             }
             // if(!imageFile.file) return setStatusText('Error: Failed to convert PDF to image');
 
             //
-            setStatusText('Uploading the image...');
+            setStatusText('Subiendo la imagen...');
             const uploadedImage = await fs.upload([imageFile.file]);
-            if (!uploadedImage) throw new Error('Failed to upload image');
+            if (!uploadedImage) throw new Error('No se pudo cargar la imagen');
             // if(!uploadedImage) return setStatusText('Error: Failed to upload image');
 
             //
-            setStatusText('Preparing data...');
+            setStatusText('Preparando datos...');
             const uuid = generateUUID();
             const data = {
                 id: uuid,
@@ -58,16 +59,16 @@ const upload = () => {
                 jobDescription,
                 feedback: '',
             }
-            await kv.set(`resume:${uuid}`, JSON.stringify(data));
+            await kv.set(`Resumen:${uuid}`, JSON.stringify(data));
 
-            setStatusText('Analyzing...');
+            setStatusText('Analizando...');
             const feedback = await ai.feedback(
                 uploadedFile.path,
                 prepareInstructions({ jobTitle, jobDescription })
             )
 
             if (!feedback?.message?.content)
-                throw new Error("AI returned empty feedback");
+                throw new Error("La IA devolvió comentarios vacíos");
 
             let feedbackText: string;
 
@@ -79,17 +80,17 @@ const upload = () => {
 
             data.feedback = JSON.parse(feedbackText);
             } catch {
-                throw new Error("Invalid AI response format");
+                throw new Error("Formato de respuesta de IA no válido");
             }
 
             await kv.set(`resume:${uuid}`, JSON.stringify(data));
 
-            setStatusText("Analysis complete, redirecting...");
+            setStatusText("Análisis completo, redireccionando...");
             navigate(`/resume/${uuid}`);
             shouldStopProcessing = false;
         } catch (error) {
-            console.error("Analyze error:", error);
-            setStatusText( error instanceof Error ? `Error: ${error.message}` : "Unexpected error occurred");
+            console.error("Analizando error:", error);
+            setStatusText( error instanceof Error ? `Error: ${error.message}` : "Se produjo un error inesperado");
         } finally {
             if (shouldStopProcessing) {
                 setIsProcessing(false);
@@ -97,18 +98,48 @@ const upload = () => {
         }
     }
 
+    const validateForm = ({
+            companyName, jobTitle, jobDescription, file, }: {
+            companyName: string;
+            jobTitle: string;
+            jobDescription: string;
+            file: File | null;
+        }) => {
+        const fields = [
+            { value: companyName, message: "Debes ingresar el nombre de la empresa", id: "company-name-error"},
+            { value: jobTitle, message: "Debes ingresar el puesto de trabajo", id: "job-title-error"},
+            { value: jobDescription, message: "Debes ingresar la descripción del puesto", id: "job-description-error"},
+            { value: file, message: "Debes subir tu currículum", id: "file-error"},
+        ];
+
+        const error = fields.find(field => !field.value);
+
+        if (error) {
+            toast.error(error.message, { id: error.id });
+            return false;
+        }
+
+        return true;
+    };
+
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        
         const form = e.currentTarget.closest('form');
         if(!form) return;
+        
         const formData = new FormData(form);
 
         const companyName = formData.get('company-name') as string;
         const jobTitle = formData.get('job-title') as string;
         const jobDescription = formData.get('job-description') as string;
 
-        if(!file) return;
-
+        if (
+            !validateForm({ companyName, jobTitle, jobDescription, file, })
+        ) {
+            return;
+        }
+        if (!file) return;
         handleAnalyze({companyName, jobTitle, jobDescription, file})
     }   
 
@@ -118,35 +149,35 @@ const upload = () => {
 
         <section className="main-section">
             <div className="page-heading py-16">
-                <h1>Smart feedback for your dream job</h1>
+                <h1>Comentarios inteligentes para el trabajo de tus sueños</h1>
                 {isProcessing ? (
                     <>
                         <h2>{statusText}</h2>
-                        <img src="/images/resume-scan.gif" className="w-full" />
+                        <img src="/images/resume-scan.gif" className="w-[350px] h-[350px] object-cover" />
                     </>
                 ) : (
-                    <h2>Drop your resume for an ATS score and improvement tips</h2>
+                    <h2>Envíe su currículum para obtener una puntuación ATS y consejos de mejora</h2>
                 )}
                 {!isProcessing && (
                     <form id="upload-form" onSubmit={handleSubmit} className="flex flex-col gap-4 mt-8">
                         <div className="form-div">
-                            <label htmlFor="company-name">Company Name</label>
-                            <input type="text" name="company-name" placeholder="Company Name" id="company-name" />
+                            <label htmlFor="company-name">Nombre de la empresa</label>
+                            <input type="text" name="company-name" placeholder="Nombre de la empresa" id="company-name" />
                         </div>
                         <div className="form-div">
-                            <label htmlFor="job-title">Job Title</label>
-                            <input type="text" name="job-title" placeholder="Job Title" id="job-title" />
+                            <label htmlFor="job-title">Puesto de trabajo</label>
+                            <input type="text" name="job-title" placeholder="Puesto de trabajo" id="job-title" />
                         </div>
                         <div className="form-div">
-                            <label htmlFor="job-description">Job Description</label>
-                            <textarea rows={5} name="job-description" placeholder="Job Description" id="job-description" />
+                            <label htmlFor="job-description">Descripción del puesto</label>
+                            <textarea rows={5} name="job-description" placeholder="Descripción del puesto" id="job-description" />
                         </div>
                         <div className="form-div">
-                            <label htmlFor="uploader">Upload Resume</label>
+                            <label htmlFor="uploader">Subír currículum</label>
                             <FileUploader onFileSelect={handleFileSelect} />
                         </div>
                         <button className="primary-button" type="submit">
-                            Analyze Resume 
+                            Analizar Resumen
                         </button>
                     </form>
                 )}

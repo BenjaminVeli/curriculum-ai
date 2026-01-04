@@ -13,6 +13,8 @@ export const meta = () => ([
 const resume = () => {
     const { auth, isLoading, fs, kv } = usePuterStore();
     const { id } = useParams();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [imageUrl, setImageUrl] = useState('');
     const [resumeUrl, setResumeUrl] = useState('');
     const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -24,26 +26,36 @@ const resume = () => {
 
     useEffect(() => {
         const loadResume = async () => {
-            const resume = await kv.get(`resume:${id}`);
+            try{
+                setLoading(true);
 
-            if(!resume) return;
+                const resume = await kv.get(`resume:${id}`);
+                if (!resume) {
+                    throw new Error("Resumen no encontrado");
+                }
 
-            const data = JSON.parse(resume);
+                const data = JSON.parse(resume);
 
-            const resumeBlob = await fs.read(data.resumePath);
-            if(!resumeBlob) return;
+                if (!data.feedback) {
+                    throw new Error("Feedback no disponible");
+                }
 
-            const pdfBlob = new Blob([resumeBlob], { type: 'application/pdf' });
-            const resumeUrl = URL.createObjectURL(pdfBlob);
-            setResumeUrl(resumeUrl);
+                const resumeBlob = await fs.read(data.resumePath);
+                if (!resumeBlob) throw new Error("No se pudo leer el PDF");
 
-            const imageBlob = await fs.read(data.imagePath);
-            if(!imageBlob) return;
-            const imageUrl = URL.createObjectURL(imageBlob);
-            setImageUrl(imageUrl);
+                const pdfBlob = new Blob([resumeBlob], { type: "application/pdf" });
+                setResumeUrl(URL.createObjectURL(pdfBlob));
 
-            setFeedback(data.feedback);
-            console.log({resumeUrl, imageUrl, feedback: data.feedback });
+                const imageBlob = await fs.read(data.imagePath);
+                if (!imageBlob) throw new Error("No se pudo leer la imagen");
+
+                setImageUrl(URL.createObjectURL(imageBlob));
+                setFeedback(data.feedback);
+             } catch (err) {
+                setError(err instanceof Error ? err.message : "Error desconocido");
+            } finally {
+                setLoading(false);
+            }
         }
 
         loadResume();
@@ -54,7 +66,7 @@ const resume = () => {
             <nav className="resume-nav">
                 <Link to="/" className="back-button">
                     <img src="/icons/back.svg" alt="logo" className="w-2.5 h-2.5" />
-                    <span className="text-gray-800 text-sm font-semibold">Back to Homepage</span>
+                    <span className="text-gray-800 text-sm font-semibold">Volver a la página de inicio</span>
                 </Link>
             </nav>
             <div className="flex flex-row w-full max-lg:flex-col-reverse">
@@ -72,15 +84,22 @@ const resume = () => {
                     )}
                 </section>
                 <section className="feedback-section">
-                    <h2 className="text-4xl !text-black font-bold">Resume Review</h2>
-                    {feedback ? (
-                        <div className="flex flex-col gap-8 animate-in fade-in duration-1000">
-                            <Summary feedback={feedback} />
-                            <ATS score={feedback.ATS.score || 0} suggestions={feedback.ATS.tips || []} />
-                            <Details feedback={feedback} />
-                        </div>
-                    ) : (
+                    <h2 className="text-4xl !text-black font-bold">Revisión del resumen</h2>
+
+                    {loading && (
                         <img src="/images/resume-scan-2.gif" className="w-full" />
+                    )}
+
+                    {!loading && error && (
+                        <p className="text-red-500 font-semibold">{error}</p>
+                    )}
+
+                    {!loading && feedback && (
+                        <div className="flex flex-col gap-8 animate-in fade-in duration-1000">
+                        <Summary feedback={feedback} />
+                        <ATS score={feedback.ATS.score || 0} suggestions={feedback.ATS.tips || []} />
+                        <Details feedback={feedback} />
+                        </div>
                     )}
                 </section>
             </div>
