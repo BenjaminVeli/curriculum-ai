@@ -7,6 +7,14 @@ import { convertPdfToImage } from "~/lib/pdf2img";
 import { usePuterStore } from "~/lib/puter";
 import { generateUUID } from "~/lib/utils";
 import toast from "react-hot-toast";
+import type { Route } from "./+types/home";
+
+export function meta({}: Route.MetaArgs) {
+  return [
+    { title: "Smart Curriculum AI | Upload" },
+    { name: "description", content: "Smart feedback for your dream" },
+  ];
+}
 
 const upload = () => {
     const {fs, ai, kv} = usePuterStore();
